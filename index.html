@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Sistema de Planificación Semanal para coordinadores de planta - Gestione actividades de Producción, Mantenimiento y Seguridad." />
+  <title>PlanificaPlanta · Coordinación de Turno</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ========== HEADER ========== -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-name">PlanificaPlanta</h1>
+          <p class="brand-sub">Coordinación de Turno</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="week-badge" id="weekBadge">Cargando semana...</div>
+        <div class="header-time" id="headerTime"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========== MAIN ========== -->
+  <main class="app-main">
+
+    <!-- TABS -->
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-btn active" id="tab-form-btn" role="tab" aria-selected="true" aria-controls="tab-form" onclick="switchTab('form')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Registrar Actividad
+      </button>
+      <button class="tab-btn" id="tab-board-btn" role="tab" aria-selected="false" aria-controls="tab-board" onclick="switchTab('board')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Planificación Semanal
+      </button>
+      <button class="tab-btn" id="tab-seg-btn" role="tab" aria-selected="false" aria-controls="tab-seg" onclick="switchTab('seg')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Seguimiento
+      </button>
+    </nav>
+
+    <!-- ===== TAB 1: FORMULARIO ===== -->
+    <section class="tab-panel active" id="tab-form" role="tabpanel" aria-labelledby="tab-form-btn">
+      <div class="panel-grid">
+
+        <!-- FORM CARD -->
+        <div class="card form-card">
+          <div class="card-header">
+            <h2 class="card-title">Nueva Actividad</h2>
+            <p class="card-sub">Complete los campos para registrar la tarea en el sistema.</p>
+          </div>
+
+          <form id="planForm" novalidate>
+
+            <!-- AREA -->
+            <div class="field-group">
+              <label class="field-label" for="area">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Área
+              </label>
+              <div class="select-wrapper">
+                <select id="area" name="area" required>
+                  <option value="" disabled selected>Seleccione un área...</option>
+                  <option value="Planta 1">🏭 Producción Planta 1</option>
+                  <option value="Planta 2">🏭 Producción Planta 2</option>
+                  <option value="Mantenimiento">🔧 Mantenimiento</option>
+                  <option value="Seguridad/Medioambiente">⛑️ Seguridad / Medioambiente</option>
+                </select>
+                <span class="select-arrow">▾</span>
+              </div>
+              <span class="field-error" id="area-error">Seleccione un área.</span>
+            </div>
+
+            <!-- ACTIVIDAD -->
+            <div class="field-group">
+              <label class="field-label" for="actividad">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Descripción de la Actividad
+              </label>
+              <textarea id="actividad" name="actividad" rows="3" placeholder="Ej: Revisión de niveles de aceite en compresor #3..." required maxlength="300"></textarea>
+              <div class="char-counter"><span id="charCount">0</span>/300</div>
+              <span class="field-error" id="actividad-error">Ingrese la descripción de la actividad.</span>
+            </div>
+
+            <!-- DIAS (multi-selección) -->
+            <div class="field-group">
+              <label class="field-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Días de Ejecución
+              </label>
+              <div class="day-selector" id="daySelector" role="group" aria-label="Seleccionar días de ejecución">
+                <button type="button" class="day-btn" data-value="Lunes">Lun</button>
+                <button type="button" class="day-btn" data-value="Martes">Mar</button>
+                <button type="button" class="day-btn" data-value="Miércoles">Mié</button>
+                <button type="button" class="day-btn" data-value="Jueves">Jue</button>
+                <button type="button" class="day-btn" data-value="Viernes">Vie</button>
+                <button type="button" class="day-btn" data-value="Sábado">Sáb</button>
+                <button type="button" class="day-btn" data-value="Domingo">Dom</button>
+              </div>
+              <input type="hidden" id="dia" name="dia" value="">
+              <span class="field-error" id="dia-error">Seleccione al menos un día de ejecución.</span>
+            </div>
+
+            <!-- PRIORIDAD -->
+            <div class="field-group">
+              <label class="field-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Prioridad
+              </label>
+              <div class="priority-selector" id="prioritySelector" role="group" aria-label="Seleccionar prioridad">
+                <button type="button" class="priority-btn" data-value="1" id="prio-1" aria-label="Prioridad 1 - Baja">
+                  <span class="prio-num">1</span>
+                  <span class="prio-label">Baja</span>
+                </button>
+                <button type="button" class="priority-btn" data-value="2" id="prio-2" aria-label="Prioridad 2 - Normal">
+                  <span class="prio-num">2</span>
+                  <span class="prio-label">Normal</span>
+                </button>
+                <button type="button" class="priority-btn" data-value="3" id="prio-3" aria-label="Prioridad 3 - Media">
+                  <span class="prio-num">3</span>
+                  <span class="prio-label">Media</span>
+                </button>
+                <button type="button" class="priority-btn" data-value="4" id="prio-4" aria-label="Prioridad 4 - Alta">
+                  <span class="prio-num">4</span>
+                  <span class="prio-label">Alta</span>
+                </button>
+                <button type="button" class="priority-btn" data-value="5" id="prio-5" aria-label="Prioridad 5 - Crítica">
+                  <span class="prio-num">5</span>
+                  <span class="prio-label">Crítica</span>
+                </button>
+              </div>
+              <input type="hidden" id="prioridad" name="prioridad" value="">
+              <span class="field-error" id="prioridad-error">Seleccione un nivel de prioridad.</span>
+            </div>
+
+            <!-- DURACION -->
+            <div class="field-group">
+              <label class="field-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Duración Estimada
+              </label>
+              <div class="duration-row">
+                <div class="select-wrapper">
+                  <select id="duracionHoras" name="duracionHoras" required>
+                    <option value="" disabled selected>Horas</option>
+                    <option value="0">0 h</option>
+                    <option value="1">1 h</option>
+                    <option value="2">2 h</option>
+                    <option value="3">3 h</option>
+                    <option value="4">4 h</option>
+                    <option value="5">5 h</option>
+                    <option value="6">6 h</option>
+                    <option value="7">7 h</option>
+                    <option value="8">8 h</option>
+                    <option value="9">9 h</option>
+                    <option value="10">10 h</option>
+                    <option value="11">11 h</option>
+                    <option value="12">12 h</option>
+                  </select>
+                  <span class="select-arrow">▾</span>
+                </div>
+                <span class="duration-sep">:</span>
+                <div class="select-wrapper">
+                  <select id="duracionMinutos" name="duracionMinutos" required>
+                    <option value="" disabled selected>Min</option>
+                    <option value="00">00 min</option>
+                    <option value="15">15 min</option>
+                    <option value="30">30 min</option>
+                    <option value="45">45 min</option>
+                  </select>
+                  <span class="select-arrow">▾</span>
+                </div>
+              </div>
+              <span class="field-error" id="duracion-error">Seleccione la duración estimada.</span>
+            </div>
+
+            <!-- COLABORADORES (multi-selección) -->
+            <div class="field-group">
+              <label class="field-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Colaboradores Asignados
+              </label>
+              <div class="tag-picker" id="colaboradorPicker">
+                <div class="tag-picker-chips" id="colaboradorChips"></div>
+                <input type="text" id="colaboradorSearch" placeholder="Cargando colaboradores..." autocomplete="off" disabled />
+                <div class="tag-picker-dropdown" id="colaboradorDropdown" hidden></div>
+              </div>
+              <input type="hidden" id="colaborador" name="colaborador" value="">
+              <span class="field-error" id="colaborador-error">Seleccione al menos un colaborador.</span>
+            </div>
+
+            <!-- SUBMIT -->
+            <button type="submit" class="btn-primary" id="submitBtn">
+              <span class="btn-text">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Guardar Actividad
+              </span>
+              <span class="btn-loading" hidden>
+                <span class="spinner"></span>
+                Guardando...
+              </span>
+            </button>
+
+          </form>
+        </div>
+
+        <!-- STATS CARD -->
+        <div class="stats-column">
+          <div class="card stats-card">
+            <h3 class="stats-title">Resumen Semanal</h3>
+            <div class="stats-grid" id="statsGrid">
+              <div class="stat-item loading-pulse"><span class="stat-num">—</span><span class="stat-lbl">Total</span></div>
+              <div class="stat-item loading-pulse"><span class="stat-num">—</span><span class="stat-lbl">Críticas</span></div>
+              <div class="stat-item loading-pulse"><span class="stat-num">—</span><span class="stat-lbl">Planta 1</span></div>
+              <div class="stat-item loading-pulse"><span class="stat-num">—</span><span class="stat-lbl">Planta 2</span></div>
+            </div>
+          </div>
+
+          <div class="card hours-card">
+            <h3 class="stats-title">Horas por Colaborador · Semana Actual</h3>
+            <div class="hours-table-wrap" id="hoursTableWrap">
+              <p class="empty-sub" style="text-align:center;padding:16px 0;">Cargando...</p>
+            </div>
+          </div>
+
+          <div class="card tips-card">
+            <h3 class="tips-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Escala de Prioridades
+            </h3>
+            <ul class="prio-guide">
+              <li><span class="badge-prio p5">5</span> <strong>Crítica</strong> — Detención de producción, riesgo inmediato.</li>
+              <li><span class="badge-prio p4">4</span> <strong>Alta</strong> — Afecta rendimiento, requiere atención hoy.</li>
+              <li><span class="badge-prio p3">3</span> <strong>Media</strong> — Planificada, no urgente pero necesaria.</li>
+              <li><span class="badge-prio p2">2</span> <strong>Normal</strong> — Rutina de bajo impacto.</li>
+              <li><span class="badge-prio p1">1</span> <strong>Baja</strong> — Mejora continua, ejecutar si hay tiempo.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== TAB 2: TABLERO ===== -->
+    <section class="tab-panel" id="tab-board" role="tabpanel" aria-labelledby="tab-board-btn">
+
+      <!-- WEEK NAV -->
+      <div class="week-nav" id="boardWeekNav">
+        <button type="button" class="week-nav-btn" onclick="changeWeek(-1)" title="Semana anterior">‹</button>
+        <span class="week-nav-label" id="boardWeekLabel">Semana actual</span>
+        <button type="button" class="week-nav-btn" onclick="changeWeek(1)" title="Semana siguiente">›</button>
+        <button type="button" class="week-nav-today" id="boardWeekToday" onclick="goToCurrentWeek()" hidden>Ir a hoy</button>
+      </div>
+
+      <!-- TOOLBAR -->
+      <div class="board-toolbar">
+        <div class="filters-row">
+          <div class="filter-group">
+            <label class="filter-label" for="filterArea">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              Filtrar por área:
+            </label>
+            <div class="select-wrapper sm">
+              <select id="filterArea" onchange="applyFilter()">
+                <option value="">Todas las áreas</option>
+                <option value="Planta 1">Planta 1</option>
+                <option value="Planta 2">Planta 2</option>
+                <option value="Mantenimiento">Mantenimiento</option>
+                <option value="Seguridad/Medioambiente">Seguridad / Medioambiente</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label" for="filterColaborador">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Filtrar por colaborador:
+            </label>
+            <div class="select-wrapper sm">
+              <select id="filterColaborador" onchange="applyFilter()">
+                <option value="">Todos los colaboradores</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn-refresh" id="injectRoutinesBtn" onclick="injectRoutinesThisWeek()" title="Copiar actividades del catálogo 'Actividades_Rutinarias' a la semana que se está viendo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+            Cargar Rutinas
+          </button>
+          <button class="btn-refresh" id="printBtn" onclick="printWeeklyPlan()" title="Imprimir o exportar a PDF">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir / PDF
+          </button>
+          <button class="btn-refresh" id="refreshBtn" onclick="loadTasks()" title="Actualizar datos">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            Actualizar
+          </button>
+        </div>
+      </div>
+
+      <!-- ÁREA IMPRIMIBLE -->
+      <div id="printArea">
+        <h2 class="print-only-title" id="printWeekTitle"></h2>
+
+        <!-- COLABORADOR SUMMARY -->
+        <div id="colabSummary" class="colab-summary">
+          <!-- Renderizado dinámicamente desde JS -->
+        </div>
+
+        <!-- BOARD CONTENT -->
+        <div id="boardContent">
+          <div class="loading-state">
+            <div class="spinner large"></div>
+            <p>Cargando planificación...</p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===== TAB 3: SEGUIMIENTO ===== -->
+    <section class="tab-panel" id="tab-seg" role="tabpanel" aria-labelledby="tab-seg-btn">
+
+      <!-- WEEK NAV -->
+      <div class="week-nav" id="segWeekNav">
+        <button type="button" class="week-nav-btn" onclick="changeWeek(-1)" title="Semana anterior">‹</button>
+        <span class="week-nav-label" id="segWeekLabel">Semana actual</span>
+        <button type="button" class="week-nav-btn" onclick="changeWeek(1)" title="Semana siguiente">›</button>
+        <button type="button" class="week-nav-today" id="segWeekToday" onclick="goToCurrentWeek()" hidden>Ir a hoy</button>
+      </div>
+
+      <!-- RESUMEN -->
+      <div class="seg-summary" id="segSummary">
+        <!-- Renderizado dinámicamente desde JS -->
+      </div>
+
+      <!-- TOOLBAR / FILTROS -->
+      <div class="board-toolbar">
+        <div class="filters-row">
+          <div class="filter-group">
+            <label class="filter-label" for="segFilterArea">Filtrar por área:</label>
+            <div class="select-wrapper sm">
+              <select id="segFilterArea" onchange="renderSeguimiento()">
+                <option value="">Todas las áreas</option>
+                <option value="Planta 1">Planta 1</option>
+                <option value="Planta 2">Planta 2</option>
+                <option value="Mantenimiento">Mantenimiento</option>
+                <option value="Seguridad/Medioambiente">Seguridad / Medioambiente</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label" for="segFilterColaborador">Filtrar por colaborador:</label>
+            <div class="select-wrapper sm">
+              <select id="segFilterColaborador" onchange="renderSeguimiento()">
+                <option value="">Todos los colaboradores</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label" for="segFilterEstado">Estado:</label>
+            <div class="select-wrapper sm">
+              <select id="segFilterEstado" onchange="renderSeguimiento()">
+                <option value="">Todos</option>
+                <option value="ejecutada">Ejecutadas</option>
+                <option value="pendiente">Pendientes</option>
+              </select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="segContent">
+        <div class="loading-state">
+          <div class="spinner large"></div>
+          <p>Cargando reporte...</p>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- TOAST -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- BATCH SKIP MODAL — combinaciones día×colaborador que exceden 8h -->
+  <div class="modal-overlay" id="batchSkipModal" role="dialog" aria-modal="true" hidden>
+    <div class="modal-card">
+      <div class="modal-icon">⚠️</div>
+      <h2 class="modal-title">Algunas combinaciones no se guardarán</h2>
+      <p>Las siguientes combinaciones de día y colaborador superarían el límite de 8 horas diarias y se omitirán:</p>
+
+      <ul class="skip-list" id="batchSkipList"></ul>
+
+      <div style="display: flex; gap: 12px;">
+        <button class="btn-secondary" onclick="cancelBatchSave()">Cancelar</button>
+        <button class="btn-primary" onclick="confirmBatchSave()" style="margin-top: 0;">Guardar las demás</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIG MODAL (shown if no URL configured) -->
+  <div class="modal-overlay" id="configModal" role="dialog" aria-modal="true" aria-labelledby="configTitle">
+    <div class="modal-card">
+      <div class="modal-icon">⚙️</div>
+      <h2 id="configTitle">Configuración Inicial</h2>
+      <p>Ingrese la URL de su Google Apps Script Web App para conectar la aplicación con Google Sheets.</p>
+      <div class="field-group">
+        <label class="field-label" for="scriptUrl">URL del Apps Script</label>
+        <input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="scriptToken">Token de Acceso</label>
+        <input type="text" id="scriptToken" placeholder="El mismo valor de ACCESS_TOKEN en Code.gs" autocomplete="off" />
+      </div>
+      <button class="btn-primary" onclick="saveConfig()" id="saveConfigBtn">Guardar y Conectar</button>
+      <p class="modal-hint">Consulte las instrucciones en <code>INSTRUCCIONES.md</code> para obtener esta URL.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
