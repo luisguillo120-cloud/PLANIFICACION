@@ -80,15 +80,13 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 Área
               </label>
-              <div class="select-wrapper">
-                <select id="area" name="area" required>
-                  <option value="" disabled selected>Seleccione un área...</option>
-                  <option value="Planta 1">🏭 Producción Planta 1</option>
-                  <option value="Planta 2">🏭 Producción Planta 2</option>
-                  <option value="Mantenimiento">🔧 Mantenimiento</option>
-                  <option value="Seguridad/Medioambiente">⛑️ Seguridad / Medioambiente</option>
+              <div class="select-wrapper" id="areaWrapper">
+                <select id="area" name="area" required disabled>
+                  <option value="" disabled selected>Cargando áreas...</option>
                 </select>
-                <span class="select-arrow">▾</span>
+                <span class="select-arrow" id="areaArrow">
+                  <span class="spinner-xs" id="areaSpinner"></span>
+                </span>
               </div>
               <span class="field-error" id="area-error">Seleccione un área.</span>
             </div>
@@ -285,10 +283,6 @@
             <div class="select-wrapper sm">
               <select id="filterArea" onchange="applyFilter()">
                 <option value="">Todas las áreas</option>
-                <option value="Planta 1">Planta 1</option>
-                <option value="Planta 2">Planta 2</option>
-                <option value="Mantenimiento">Mantenimiento</option>
-                <option value="Seguridad/Medioambiente">Seguridad / Medioambiente</option>
               </select>
               <span class="select-arrow">▾</span>
             </div>
@@ -314,6 +308,10 @@
           <button class="btn-refresh" id="printBtn" onclick="printWeeklyPlan()" title="Imprimir o exportar a PDF">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Imprimir / PDF
+          </button>
+          <button class="btn-refresh" id="emailBoardBtn" onclick="openEmailModal('board')" title="Enviar la planificación semanal por correo (PDF adjunto)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 6l-10 7L2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
+            Enviar por Correo
           </button>
           <button class="btn-refresh" id="refreshBtn" onclick="loadTasks()" title="Actualizar datos">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
@@ -353,11 +351,6 @@
         <button type="button" class="week-nav-today" id="segWeekToday" onclick="goToCurrentWeek()" hidden>Ir a hoy</button>
       </div>
 
-      <!-- RESUMEN -->
-      <div class="seg-summary" id="segSummary">
-        <!-- Renderizado dinámicamente desde JS -->
-      </div>
-
       <!-- TOOLBAR / FILTROS -->
       <div class="board-toolbar">
         <div class="filters-row">
@@ -366,10 +359,6 @@
             <div class="select-wrapper sm">
               <select id="segFilterArea" onchange="renderSeguimiento()">
                 <option value="">Todas las áreas</option>
-                <option value="Planta 1">Planta 1</option>
-                <option value="Planta 2">Planta 2</option>
-                <option value="Mantenimiento">Mantenimiento</option>
-                <option value="Seguridad/Medioambiente">Seguridad / Medioambiente</option>
               </select>
               <span class="select-arrow">▾</span>
             </div>
@@ -395,12 +384,32 @@
             </div>
           </div>
         </div>
+        <div class="toolbar-actions">
+          <button class="btn-refresh" id="printSegBtn" onclick="printSeguimiento()" title="Imprimir o exportar a PDF">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir / PDF
+          </button>
+          <button class="btn-refresh" id="emailSegBtn" onclick="openEmailModal('seg')" title="Enviar el reporte de seguimiento por correo (PDF adjunto)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6l-10 7L2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
+            Enviar por Correo
+          </button>
+        </div>
       </div>
 
-      <div id="segContent">
-        <div class="loading-state">
-          <div class="spinner large"></div>
-          <p>Cargando reporte...</p>
+      <!-- ÁREA IMPRIMIBLE -->
+      <div id="segPrintArea">
+        <h2 class="print-only-title" id="segPrintWeekTitle"></h2>
+
+        <!-- RESUMEN -->
+        <div class="seg-summary" id="segSummary">
+          <!-- Renderizado dinámicamente desde JS -->
+        </div>
+
+        <div id="segContent">
+          <div class="loading-state">
+            <div class="spinner large"></div>
+            <p>Cargando reporte...</p>
+          </div>
         </div>
       </div>
 
@@ -446,6 +455,41 @@
     </div>
   </div>
 
+  <!-- EMAIL MODAL — enviar Planificación Semanal / Seguimiento por correo con PDF adjunto -->
+  <div class="modal-overlay" id="emailModal" role="dialog" aria-modal="true" hidden>
+    <div class="modal-card">
+      <div class="modal-icon">📧</div>
+      <h2 class="modal-title">Enviar por Correo</h2>
+      <p id="emailModalHint">Se adjuntará un PDF generado a partir de la semana y los filtros que estás viendo.</p>
+
+      <div class="field-group" style="text-align: left;">
+        <label class="field-label" for="emailTo">Destinatario(s)</label>
+        <input type="text" id="emailTo" placeholder="correo@ejemplo.com, otro@ejemplo.com" autocomplete="off" />
+      </div>
+      <div class="field-group" style="text-align: left;">
+        <label class="field-label" for="emailSubject">Asunto</label>
+        <input type="text" id="emailSubject" />
+      </div>
+      <div class="field-group" style="text-align: left;">
+        <label class="field-label" for="emailMessage">Mensaje</label>
+        <textarea id="emailMessage" rows="3"></textarea>
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <button class="btn-secondary" onclick="cancelEmailModal()">Cancelar</button>
+        <button class="btn-primary" id="emailSendBtn" onclick="confirmSendEmail()" style="margin-top: 0;">
+          <span class="btn-text">Enviar</span>
+          <span class="btn-loading" hidden><span class="spinner"></span> Generando PDF y enviando...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor oculto usado para renderizar el HTML fuente del PDF (jsPDF + html2canvas) -->
+  <div id="pdfExportContainer" style="position: fixed; left: -99999px; top: 0; width: 1300px; background: #fff;"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

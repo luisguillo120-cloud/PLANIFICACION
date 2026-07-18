@@ -34,7 +34,6 @@ var HEADERS = [
 
 var RUTINARIAS_HEADERS = ['Actividad', 'Día', 'Tiempo', 'Colaborador', 'Prioridad', 'Área'];
 
-var VALID_AREAS = ['Planta 1', 'Planta 2', 'Mantenimiento', 'Seguridad/Medioambiente'];
 var DIAS_ORDEN  = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 var DIAS_OFFSET = { 'Lunes': 0, 'Martes': 1, 'Miércoles': 2, 'Jueves': 3, 'Viernes': 4, 'Sábado': 5, 'Domingo': 6 };
 
@@ -73,6 +72,11 @@ function doGet(e) {
     if (action === 'colaboradores') {
       var nombres = getColaboradores();
       return buildResponse({ status: 'ok', data: nombres });
+    }
+
+    if (action === 'areas') {
+      var areas = getAreas();
+      return buildResponse({ status: 'ok', data: areas });
     }
 
     return buildResponse({ status: 'error', message: 'Acción no reconocida.' });
@@ -122,6 +126,11 @@ function doPost(e) {
     if (action === 'injectRoutines') {
       var resultadoRutinas = injectRoutinesForWeek(body.semanaLunes);
       return buildResponse({ status: 'ok', insertadas: resultadoRutinas.insertadas });
+    }
+
+    if (action === 'sendEmail') {
+      sendPlanningEmail(body);
+      return buildResponse({ status: 'ok', message: 'Correo enviado.' });
     }
 
     return buildResponse({ status: 'error', message: 'Acción no reconocida.' });
@@ -356,7 +365,11 @@ function validarCamposComunes(data) {
   if (!data.area)      throw new Error('El campo "area" es requerido.');
   if (!data.actividad) throw new Error('El campo "actividad" es requerido.');
   if (!data.prioridad) throw new Error('El campo "prioridad" es requerido.');
-  if (VALID_AREAS.indexOf(data.area) === -1) throw new Error('Área no válida.');
+
+  var areasValidas = getAreas();
+  if (areasValidas.length > 0 && areasValidas.indexOf(data.area) === -1) {
+    throw new Error('Área no válida.');
+  }
 
   var prioridad = parseInt(data.prioridad);
   if (prioridad < 1 || prioridad > 5) throw new Error('Prioridad debe estar entre 1 y 5.');
@@ -633,6 +646,39 @@ function getColaboradores() {
 }
 
 /**
+ * Lee las áreas disponibles desde la hoja "Area" (columna A).
+ * Detecta automáticamente si la fila 1 es encabezado.
+ * @returns {Array<string>} Lista de nombres de área
+ */
+function getAreas() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Area') || ss.getSheetByName('Área');
+
+  if (!sheet) {
+    throw new Error('No se encontró la hoja "Area" en el archivo.');
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 1) return [];
+
+  var values = sheet.getRange(1, 1, lastRow, 1).getValues();
+  if (values.length === 0) return [];
+
+  var firstCell = String(values[0][0]).trim().toLowerCase();
+  var esEncabezado = (firstCell === 'area' || firstCell === 'área' ||
+                      firstCell === 'areas' || firstCell === 'áreas');
+  var startRow = esEncabezado ? 1 : 0;
+
+  var areas = [];
+  for (var i = startRow; i < values.length; i++) {
+    var nombre = String(values[i][0]).trim();
+    if (nombre) areas.push(nombre);
+  }
+
+  return areas;
+}
+
+/**
  * Elimina una tarea por ID.
  * @param {string} id - ID de la tarea a eliminar
  */
@@ -874,6 +920,36 @@ function configurarTriggerSemanal() {
     .create();
 
   Logger.log('Trigger semanal configurado: procesarFinDeSemana correrá cada lunes ~00:05.');
+}
+
+// ============================================================
+// ENVÍO DE CORREO — Planificación Semanal / Reporte de Seguimiento
+// ============================================================
+
+/**
+ * Envía por correo (con MailApp) el PDF que generó el frontend con
+ * jsPDF, adjuntándolo al mensaje. El límite diario de MailApp depende
+ * del tipo de cuenta de Google (≈100/día en cuentas gratuitas).
+ * @param {Object} data - { to: string[]|string, subject, body, pdfBase64, filename }
+ */
+function sendPlanningEmail(data) {
+  var destinatarios = Array.isArray(data.to) ? data.to.filter(Boolean).join(',') : String(data.to || '').trim();
+  if (!destinatarios) throw new Error('Debe indicar al menos un destinatario.');
+  if (!data.pdfBase64) throw new Error('No se recibió el PDF a enviar.');
+
+  var asunto = data.subject ? String(data.subject) : 'Planificación Semanal';
+  var cuerpo = data.body ? String(data.body) : 'Se adjunta el archivo PDF.';
+  var nombreArchivo = data.filename ? String(data.filename) : 'planificacion.pdf';
+
+  var pdfBytes = Utilities.base64Decode(data.pdfBase64);
+  var blob = Utilities.newBlob(pdfBytes, 'application/pdf', nombreArchivo);
+
+  MailApp.sendEmail({
+    to: destinatarios,
+    subject: asunto,
+    body: cuerpo,
+    attachments: [blob],
+  });
 }
 
 /**

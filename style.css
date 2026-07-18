@@ -518,6 +518,7 @@ select option { background: var(--bg-elevated); }
 .area-p2 { background: rgba(188,140,255,0.15); color: var(--area-p2); }
 .area-mnt { background: rgba(240,136,62,0.15); color: var(--area-mnt); }
 .area-seg { background: rgba(63,185,80,0.15); color: var(--area-seg); }
+.area-default { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
 
 .task-prio-badge {
   display: inline-flex; align-items: center; justify-content: center;
@@ -902,8 +903,8 @@ select option { background: var(--bg-elevated); }
 
   .app-main { padding: 0; max-width: 100%; }
   .tab-panel { display: none !important; }
-  #tab-board.active { display: block !important; }
-  #tab-board.active #printArea { display: block !important; }
+  #tab-board.active, #tab-seg.active { display: block !important; }
+  #tab-board.active #printArea, #tab-seg.active #segPrintArea { display: block !important; }
 
   .print-only-title {
     display: block; font-size: 1.05rem; font-weight: 800; margin-bottom: 8px; color: #000;
@@ -933,6 +934,14 @@ select option { background: var(--bg-elevated); }
   .task-prio-badge { width: 20px; height: 20px; font-size: 0.7rem; }
   .task-chip { color: #000; font-size: 0.62rem; border-color: #ddd; padding: 2px 6px; }
   .task-origen-badge { font-size: 0.58rem; padding: 1px 5px; }
+
+  /* Seguimiento */
+  .seg-summary { break-inside: avoid; margin-bottom: 10px; gap: 8px; }
+  .seg-stat { border-color: #ccc; background: #fff; padding: 8px; }
+  .seg-stat-num, .seg-stat-lbl { color: #000; }
+  .seg-table th, .seg-table td { color: #000; border-color: #ccc; padding: 5px 8px; }
+  .seg-table tr.row-done { opacity: 1; }
+  .seg-status.done, .seg-status.pending { color: #000; }
 }
 
 /* ============================================================

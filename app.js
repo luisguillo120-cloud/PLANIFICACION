@@ -15,6 +15,7 @@ const DAYS_ABBR  = { 'Lunes':'Lun', 'Martes':'Mar', 'Miércoles':'Mié', 'Jueves
 
 let allTasks = [];
 let allColaboradores = []; // Lista maestra { nombre, puesto } cargada desde la hoja "Colaboradores"
+let allAreas = []; // Lista maestra de áreas cargada desde la hoja "Area"
 let selectedPriority = null;
 let selectedDias = [];          // Días seleccionados en el formulario (multi-selección)
 let selectedColaboradores = [];  // Colaboradores seleccionados en el formulario (multi-selección)
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showConfigModal();
   } else {
     loadColaboradores();
+    loadAreas();
     loadTasks();
   }
 });
@@ -329,6 +331,279 @@ function printWeeklyPlan() {
   setTimeout(() => { document.title = prevTitle; }, 500);
 }
 
+function printSeguimiento() {
+  const label = formatWeekRangeLabel(viewWeekMonday).replace(/\s+/g, ' ');
+  const prevTitle = document.title;
+  document.title = `Reporte Seguimiento Semana ${label}`;
+  window.print();
+  setTimeout(() => { document.title = prevTitle; }, 500);
+}
+
+// ============================================================
+// ENVIAR POR CORREO — genera un PDF (jsPDF + html2canvas) y lo
+// envía como adjunto a través del backend (MailApp)
+// ============================================================
+let pendingEmailContext = null; // 'board' | 'seg'
+
+function openEmailModal(context) {
+  pendingEmailContext = context;
+  const label = formatWeekRangeLabel(viewWeekMonday);
+  const subjectEl = document.getElementById('emailSubject');
+  const hintEl    = document.getElementById('emailModalHint');
+  const messageEl = document.getElementById('emailMessage');
+
+  if (context === 'board') {
+    subjectEl.value = `Planificación Semanal · ${label}`;
+    hintEl.textContent = 'Se adjuntará un PDF con la planificación semanal de la semana y los filtros que estás viendo.';
+    messageEl.value = `Se adjunta la planificación semanal correspondiente a la semana ${label}.`;
+  } else {
+    subjectEl.value = `Reporte de Seguimiento · ${label}`;
+    hintEl.textContent = 'Se adjuntará un PDF con el reporte de seguimiento de la semana y los filtros que estás viendo.';
+    messageEl.value = `Se adjunta el reporte de seguimiento correspondiente a la semana ${label}.`;
+  }
+
+  document.getElementById('emailTo').value = '';
+  document.getElementById('emailModal').removeAttribute('hidden');
+}
+
+function cancelEmailModal() {
+  document.getElementById('emailModal').setAttribute('hidden', '');
+  pendingEmailContext = null;
+}
+
+function parseEmailList(raw) {
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function isValidEmail(addr) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr);
+}
+
+/**
+ * Construye el HTML fuente (claro, apto para impresión) del PDF de
+ * la planificación semanal, respetando la semana y los filtros del tablero.
+ */
+function buildBoardPdfHtml() {
+  const weekKey     = formatDateKey(viewWeekMonday);
+  const areaFilter  = document.getElementById('filterArea')?.value || '';
+  const colabFilter = document.getElementById('filterColaborador')?.value || '';
+  const label       = formatWeekRangeLabel(viewWeekMonday);
+
+  const filtered = allTasks.filter(t =>
+    t.semana_lunes === weekKey &&
+    (!areaFilter  || t.area === areaFilter) &&
+    (!colabFilter || t.colaborador === colabFilter)
+  );
+
+  const grouped = {};
+  DAYS_ORDER.forEach(d => { grouped[d] = []; });
+  filtered.forEach(t => { if (grouped[t.dia]) grouped[t.dia].push(t); });
+  DAYS_ORDER.forEach(d => grouped[d].sort((a, b) => b.prioridad - a.prioridad));
+
+  const rowHtml = (t) => `
+    <tr>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${t.prioridad}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.area)}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.actividad)}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.colaborador || '—')}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.duracion || '—')}</td>
+    </tr>`;
+
+  let daysHtml = '';
+  DAYS_ORDER.forEach(day => {
+    const tasks = grouped[day];
+    if (tasks.length === 0) return;
+    daysHtml += `
+      <h2 style="font-size:14px;border-bottom:1px solid #ccc;padding-bottom:4px;margin:16px 0 6px;">${day} — ${tasks.length} tarea${tasks.length !== 1 ? 's' : ''}</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px;">
+        <thead><tr style="text-align:left;color:#555;">
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Prior.</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Área</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Actividad</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Colaborador</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Duración</th>
+        </tr></thead>
+        <tbody>${tasks.map(rowHtml).join('')}</tbody>
+      </table>`;
+  });
+
+  if (!daysHtml) {
+    daysHtml = `<p style="font-size:12px;color:#555;">Sin actividades para esta semana y los filtros seleccionados.</p>`;
+  }
+
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#111;width:1260px;padding:24px;">
+      <h1 style="font-size:20px;margin-bottom:4px;">Planificación Semanal</h1>
+      <p style="font-size:12px;color:#555;margin-bottom:14px;">Semana: ${label}</p>
+      ${daysHtml}
+    </div>`;
+}
+
+/**
+ * Construye el HTML fuente del PDF del reporte de Seguimiento,
+ * respetando la semana y los filtros de esa pestaña.
+ */
+function buildSeguimientoPdfHtml() {
+  const weekKey      = formatDateKey(viewWeekMonday);
+  const areaFilter    = document.getElementById('segFilterArea')?.value || '';
+  const colabFilter   = document.getElementById('segFilterColaborador')?.value || '';
+  const estadoFilter  = document.getElementById('segFilterEstado')?.value || '';
+  const label         = formatWeekRangeLabel(viewWeekMonday);
+
+  const weekTasks = allTasks.filter(t => t.semana_lunes === weekKey);
+  const filtered = weekTasks.filter(t =>
+    (!areaFilter   || t.area === areaFilter) &&
+    (!colabFilter  || t.colaborador === colabFilter) &&
+    (!estadoFilter || (estadoFilter === 'ejecutada' ? t.ejecutada : !t.ejecutada))
+  );
+
+  const total      = weekTasks.length;
+  const ejecutadas = weekTasks.filter(t => t.ejecutada).length;
+  const pendientes = total - ejecutadas;
+  const pct        = total > 0 ? Math.round((ejecutadas / total) * 100) : 0;
+
+  const rowHtml = (day, t) => `
+    <tr>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${t.ejecutada ? 'Ejecutada' : 'Pendiente'}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${day}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.actividad)}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.colaborador || '—')}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.area)}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${t.prioridad}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #eee;">${escapeHtml(t.origen || 'Manual')}</td>
+    </tr>`;
+
+  let rowsHtml = '';
+  DAYS_ORDER.forEach(day => {
+    filtered
+      .filter(t => t.dia === day)
+      .sort((a, b) => b.prioridad - a.prioridad)
+      .forEach(t => { rowsHtml += rowHtml(day, t); });
+  });
+
+  const tableHtml = rowsHtml
+    ? `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead><tr style="text-align:left;color:#555;">
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Estado</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Día</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Actividad</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Colaborador</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Área</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Prior.</th>
+          <th style="padding:5px 8px;border-bottom:1px solid #ddd;">Origen</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`
+    : `<p style="font-size:12px;color:#555;">Sin actividades para esta semana y los filtros seleccionados.</p>`;
+
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#111;width:1260px;padding:24px;">
+      <h1 style="font-size:20px;margin-bottom:4px;">Reporte de Seguimiento</h1>
+      <p style="font-size:12px;color:#555;margin-bottom:14px;">Semana: ${label}</p>
+      <p style="font-size:12px;margin-bottom:16px;">
+        <strong>${total}</strong> tareas &nbsp;·&nbsp; <strong>${ejecutadas}</strong> ejecutadas &nbsp;·&nbsp;
+        <strong>${pendientes}</strong> pendientes &nbsp;·&nbsp; <strong>${pct}%</strong> cumplimiento
+      </p>
+      ${tableHtml}
+    </div>`;
+}
+
+/**
+ * Renderiza un fragmento HTML en el contenedor oculto #pdfExportContainer
+ * y lo convierte a un Blob PDF usando jsPDF (con html2canvas por debajo).
+ * @param {string} htmlContent
+ * @returns {Promise<Blob>}
+ */
+function htmlToPdfBlob(htmlContent) {
+  return new Promise((resolve, reject) => {
+    const container = document.getElementById('pdfExportContainer');
+    container.innerHTML = htmlContent;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    doc.html(container, {
+      x: 8, y: 8,
+      width: 281,
+      windowWidth: container.scrollWidth || 1300,
+      html2canvas: { backgroundColor: '#ffffff' },
+      callback: () => {
+        container.innerHTML = '';
+        resolve(doc.output('blob'));
+      },
+    });
+  });
+}
+
+/**
+ * Convierte un Blob a una cadena base64 (sin el prefijo "data:...;base64,").
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function confirmSendEmail() {
+  const destinatarios = parseEmailList(document.getElementById('emailTo').value.trim());
+
+  if (destinatarios.length === 0) {
+    showToast('Ingrese al menos un correo destinatario.', 'error');
+    return;
+  }
+  const invalidos = destinatarios.filter(a => !isValidEmail(a));
+  if (invalidos.length > 0) {
+    showToast(`❌ Correo(s) inválido(s): ${invalidos.join(', ')}`, 'error');
+    return;
+  }
+
+  const context = pendingEmailContext;
+  const subject = document.getElementById('emailSubject').value.trim() || 'Planificación Semanal';
+  const message = document.getElementById('emailMessage').value.trim();
+
+  const btn      = document.getElementById('emailSendBtn');
+  const btnText  = btn.querySelector('.btn-text');
+  const btnLoad  = btn.querySelector('.btn-loading');
+  btn.disabled   = true;
+  btnText.hidden = true;
+  btnLoad.hidden = false;
+
+  try {
+    const label    = formatWeekRangeLabel(viewWeekMonday).replace(/\s+/g, ' ');
+    const html     = context === 'board' ? buildBoardPdfHtml() : buildSeguimientoPdfHtml();
+    const filename = `${context === 'board' ? 'Planificacion' : 'Seguimiento'} Semana ${label}.pdf`;
+
+    const pdfBlob   = await htmlToPdfBlob(html);
+    const pdfBase64 = await blobToBase64(pdfBlob);
+
+    const res  = await fetch(scriptUrl, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({
+        action: 'sendEmail', token: accessToken,
+        to: destinatarios, subject, body: message, pdfBase64, filename,
+      }),
+    });
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || 'Error al enviar el correo.');
+
+    showToast(`📧 Correo enviado a ${destinatarios.join(', ')}.`, 'success');
+    cancelEmailModal();
+  } catch (err) {
+    console.error(err);
+    showToast(`❌ No se pudo enviar el correo: ${err.message}`, 'error');
+  } finally {
+    btn.disabled   = false;
+    btnText.hidden = false;
+    btnLoad.hidden = true;
+  }
+}
+
 // ============================================================
 // CLOCK & DATE UTILITIES
 // ============================================================
@@ -597,6 +872,74 @@ function populateColaboradorFilter() {
         opt.textContent = item.nombre;
         filterSel.appendChild(opt);
       });
+
+    if ([...filterSel.options].some(o => o.value === current)) {
+      filterSel.value = current;
+    }
+  });
+}
+
+// ============================================================
+// LOAD AREAS — GET from Apps Script (hoja "Area")
+// ============================================================
+async function loadAreas() {
+  if (!scriptUrl) return;
+  const sel   = document.getElementById('area');
+  const arrow = document.getElementById('areaArrow');
+
+  try {
+    const res  = await fetch(withToken(`${scriptUrl}?action=areas`), { method: 'GET' });
+    const json = await res.json();
+
+    if (json.status === 'ok' && json.data && json.data.length > 0) {
+      allAreas = json.data;
+
+      sel.innerHTML = '<option value="" disabled selected>Seleccione un área...</option>';
+      allAreas.forEach(nombre => {
+        const opt = document.createElement('option');
+        opt.value       = nombre;
+        opt.textContent = nombre;
+        sel.appendChild(opt);
+      });
+
+      sel.disabled    = false;
+      arrow.innerHTML = '▾';
+      populateAreaFilters();
+    } else if (json.status === 'error') {
+      throw new Error(json.message);
+    } else {
+      allAreas = [];
+      sel.innerHTML   = '<option value="" disabled selected>Sin áreas registradas</option>';
+      sel.disabled    = false;
+      arrow.innerHTML = '▾';
+      showToast('ℹ️ La hoja "Area" está vacía.', 'info');
+    }
+  } catch (err) {
+    console.error('Error cargando áreas:', err);
+    sel.innerHTML   = `<option value="" disabled selected>Error: ${err.message}</option>`;
+    sel.disabled    = false;
+    arrow.innerHTML = '▾';
+    showToast(`❌ No se pudo cargar la lista de áreas: ${err.message}`, 'error');
+  }
+}
+
+/**
+ * Llena los <select> de filtro por área (tablero y seguimiento) usando
+ * la lista maestra cargada desde la hoja "Area".
+ */
+function populateAreaFilters() {
+  ['filterArea', 'segFilterArea'].forEach(id => {
+    const filterSel = document.getElementById(id);
+    if (!filterSel) return;
+    const current = filterSel.value;
+
+    filterSel.innerHTML = '<option value="">Todas las áreas</option>';
+    allAreas.forEach(nombre => {
+      const opt = document.createElement('option');
+      opt.value       = nombre;
+      opt.textContent = nombre;
+      filterSel.appendChild(opt);
+    });
 
     if ([...filterSel.options].some(o => o.value === current)) {
       filterSel.value = current;
@@ -888,7 +1231,7 @@ function renderTaskCard(task) {
     'Planta 2':               'area-p2',
     'Mantenimiento':          'area-mnt',
     'Seguridad/Medioambiente':'area-seg',
-  }[task.area] || 'area-p1';
+  }[task.area] || 'area-default';
 
   const dateStr = task.fecha_creacion
     ? new Date(task.fecha_creacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -1135,6 +1478,7 @@ function saveConfig() {
   hideConfigModal();
   showToast('✅ Configuración guardada. Conectando con Google Sheets...', 'success');
   loadColaboradores();
+  loadAreas();
   loadTasks();
 }
 

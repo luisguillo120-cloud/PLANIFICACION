@@ -81,6 +81,14 @@ El sistema puede, cada lunes de madrugada, copiar automáticamente a la nueva se
 
 > Es seguro volver a ejecutar `configurarTriggerSemanal` si necesita reinstalar el activador (por ejemplo, después de copiar el proyecto a otra hoja): elimina el activador anterior antes de crear uno nuevo, por lo que nunca quedan duplicados.
 
+### 2.6 📧 Envío de correo con PDF adjunto
+
+Los botones **"Enviar por Correo"** (en Planificación Semanal y en Seguimiento) generan un PDF en el navegador y lo envían mediante `MailApp` desde la cuenta de Google con la que desplegó el Apps Script.
+
+- La **primera vez** que se use, Apps Script puede pedir autorizar el permiso adicional para enviar correo — acéptelo (aparece al ejecutar `doPost` con la acción `sendEmail`, o puede autorizarlo antes ejecutando manualmente `sendPlanningEmail` una vez desde el editor).
+- Las cuentas de Gmail gratuitas tienen un límite de **~100 correos por día**; las cuentas de Google Workspace tienen límites más altos.
+- El PDF que se adjunta se genera con una librería en el navegador (jsPDF), por lo que el diseño es un poco más simple que el de "Imprimir" (no requiere que el destinatario reciba nada más que el archivo).
+
 ---
 
 ## PASO 3 — Desplegar como Aplicación Web
