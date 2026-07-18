@@ -54,6 +54,15 @@
 
     <!-- ===== TAB 1: FORMULARIO ===== -->
     <section class="tab-panel active" id="tab-form" role="tabpanel" aria-labelledby="tab-form-btn">
+
+      <!-- SELECTOR DE SEMANA DE REGISTRO -->
+      <div class="week-nav" id="formWeekNav">
+        <button type="button" class="week-nav-btn" onclick="changeFormWeek(-1)" title="Semana anterior">‹</button>
+        <span class="week-nav-label" id="formWeekLabel">Semana de registro</span>
+        <button type="button" class="week-nav-btn" onclick="changeFormWeek(1)" title="Semana siguiente">›</button>
+        <button type="button" class="week-nav-today" id="formWeekToday" onclick="goToCurrentFormWeek()" hidden>Ir a hoy</button>
+      </div>
+
       <div class="panel-grid">
 
         <!-- FORM CARD -->
@@ -230,7 +239,7 @@
           </div>
 
           <div class="card hours-card">
-            <h3 class="stats-title">Horas por Colaborador · Semana Actual</h3>
+            <h3 class="stats-title">Horas por Colaborador · Semana Seleccionada</h3>
             <div class="hours-table-wrap" id="hoursTableWrap">
               <p class="empty-sub" style="text-align:center;padding:16px 0;">Cargando...</p>
             </div>

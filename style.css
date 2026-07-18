@@ -686,7 +686,7 @@ select option { background: var(--bg-elevated); }
 .week-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
 .week-nav-label {
   font-size: 0.85rem; font-weight: 700; color: var(--text-primary);
-  min-width: 220px; text-align: center;
+  min-width: 260px; text-align: center;
 }
 .week-nav-today {
   font-size: 0.72rem; font-weight: 600;

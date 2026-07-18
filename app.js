@@ -23,6 +23,7 @@ let accessToken = localStorage.getItem(TOKEN_KEY) || '';
 let pendingBatchPayload = null; // Payload de lote pausado por combinaciones que exceden 8h
 let draggedTaskId = null;       // ID de la tarjeta que se está arrastrando
 let viewWeekMonday = getMonday(new Date()); // Semana que se está viendo en Tablero/Seguimiento
+let formWeekMonday = getMonday(new Date()); // Semana para la que se registran nuevas actividades
 
 /**
  * Agrega el token de acceso a una URL de GET como query param.
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initExecutedHandler();
   initDragAndDrop();
   updateWeekNavLabels();
+  updateFormWeekLabel();
 
   if (!scriptUrl || !accessToken) {
     showConfigModal();
@@ -114,6 +116,30 @@ function goToCurrentWeek() {
   updateWeekNavLabels();
   renderBoard(allTasks);
   renderSeguimiento();
+}
+
+// ---- Semana de registro (pestaña "Registrar Actividad") ----
+function updateFormWeekLabel() {
+  const label = formatWeekRangeLabel(formWeekMonday);
+  const isCurrent = formatDateKey(formWeekMonday) === formatDateKey(getMonday(new Date()));
+  const el = document.getElementById('formWeekLabel');
+  if (el) el.textContent = `Semana de registro: ${label}${isCurrent ? ' (actual)' : ''}`;
+  const todayBtn = document.getElementById('formWeekToday');
+  if (todayBtn) todayBtn.hidden = isCurrent;
+}
+
+function changeFormWeek(delta) {
+  formWeekMonday = addDays(formWeekMonday, delta * 7);
+  updateFormWeekLabel();
+  updateStats();
+  updateHoursTable();
+}
+
+function goToCurrentFormWeek() {
+  formWeekMonday = getMonday(new Date());
+  updateFormWeekLabel();
+  updateStats();
+  updateHoursTable();
 }
 
 // ============================================================
@@ -618,14 +644,14 @@ async function handleSubmit(e) {
   const prioridad  = parseInt(document.getElementById('prioridad').value);
   const dias           = selectedDias.slice();
   const colaboradores  = selectedColaboradores.slice();
+  const semanaLunes    = formatDateKey(formWeekMonday);
 
-  const basePayload = { action: 'addBatch', token: accessToken, area, actividad, prioridad, duracion, dias, colaboradores };
+  const basePayload = { action: 'addBatch', token: accessToken, area, actividad, prioridad, duracion, dias, colaboradores, semanaLunes };
 
-  // Pre-chequeo local del límite de 8h/día contra la semana actual
-  const todayMonday = formatDateKey(getMonday(new Date()));
+  // Pre-chequeo local del límite de 8h/día contra la semana de registro elegida
   const minutosMap = {};
   allTasks
-    .filter(t => t.semana_lunes === todayMonday)
+    .filter(t => t.semana_lunes === semanaLunes)
     .forEach(t => {
       const key = `${t.colaborador}||${t.dia}`;
       minutosMap[key] = (minutosMap[key] || 0) + parseDurationToMinutes(t.duracion);
@@ -923,11 +949,11 @@ function applyFilter() {
 }
 
 // ============================================================
-// STATS (semana real actual)
+// STATS (semana de registro elegida en la pestaña "Registrar Actividad")
 // ============================================================
 function updateStats() {
-  const todayMonday = formatDateKey(getMonday(new Date()));
-  const weekTasks = allTasks.filter(t => t.semana_lunes === todayMonday);
+  const weekKey = formatDateKey(formWeekMonday);
+  const weekTasks = allTasks.filter(t => t.semana_lunes === weekKey);
 
   const total    = weekTasks.length;
   const criticas = weekTasks.filter(t => t.prioridad === 5).length;
@@ -944,17 +970,17 @@ function updateStats() {
 }
 
 // ============================================================
-// HORAS POR COLABORADOR — pestaña "Registrar Actividad" (semana real actual)
+// HORAS POR COLABORADOR — pestaña "Registrar Actividad" (semana de registro elegida)
 // ============================================================
 function updateHoursTable() {
   const wrap = document.getElementById('hoursTableWrap');
   if (!wrap) return;
 
-  const todayMonday = formatDateKey(getMonday(new Date()));
-  const weekTasks = allTasks.filter(t => t.semana_lunes === todayMonday && t.colaborador);
+  const weekKey = formatDateKey(formWeekMonday);
+  const weekTasks = allTasks.filter(t => t.semana_lunes === weekKey && t.colaborador);
 
   if (weekTasks.length === 0) {
-    wrap.innerHTML = `<p class="empty-sub" style="text-align:center;padding:16px 0;">Sin actividades esta semana.</p>`;
+    wrap.innerHTML = `<p class="empty-sub" style="text-align:center;padding:16px 0;">Sin actividades en la semana seleccionada.</p>`;
     return;
   }
 

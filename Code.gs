@@ -161,6 +161,20 @@ function formatDateKey(date) {
   return y + '-' + m + '-' + day;
 }
 
+function isValidSemanaLunesKey(key) {
+  return typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key);
+}
+
+/**
+ * Parsea una clave "YYYY-MM-DD" a Date en hora local, evitando el
+ * desfase de un día que causa `new Date("YYYY-MM-DD")` (lo interpreta
+ * en UTC) en zonas horarias con offset negativo.
+ */
+function parseDateKey(key) {
+  var parts = key.split('-');
+  return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+}
+
 // ============================================================
 // HELPERS DE HOJA — Planificacion
 // ============================================================
@@ -405,8 +419,10 @@ function addTask(data) {
  * colaboradores (producto cruzado): una fila por cada combinación
  * día×colaborador. Las combinaciones que excederían el límite de 8h
  * se omiten y se reportan en `skipped`, el resto se guarda.
- * Todas las tareas quedan planificadas en la semana calendario actual.
- * @param {Object} data - { area, actividad, prioridad, duracion, dias:[], colaboradores:[] }
+ * @param {Object} data - { area, actividad, prioridad, duracion, dias:[], colaboradores:[], semanaLunes? }
+ *   `semanaLunes` (opcional) es la clave "YYYY-MM-DD" del lunes de la
+ *   semana elegida en el selector de semana del formulario; si no se
+ *   envía, se usa la semana calendario actual.
  * @returns {{added: string[], skipped: Array<{dia,colaborador,motivo}>}}
  */
 function addBatchTasks(data) {
@@ -427,7 +443,11 @@ function addBatchTasks(data) {
   var duracion     = data.duracion ? String(data.duracion).trim() : '';
   var duracionMins = parseDurationToMinutes(duracion);
 
-  var monday         = getMonday(new Date());
+  // Semana destino: la que eligió el usuario en el selector de semana del
+  // formulario (dias.semanaLunes = "YYYY-MM-DD"), o la semana actual si no se envía.
+  var monday = isValidSemanaLunesKey(data.semanaLunes)
+    ? getMonday(parseDateKey(data.semanaLunes))
+    : getMonday(new Date());
   var semanaLunesKey = formatDateKey(monday);
 
   var lock = LockService.getScriptLock();
