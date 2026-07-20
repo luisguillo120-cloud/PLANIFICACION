@@ -780,7 +780,9 @@ function getActividadesRutinarias() {
  * @returns {{insertadas: number}}
  */
 function injectRoutinesForWeek(semanaLunesInput) {
-  var semanaDate = semanaLunesInput ? getMonday(new Date(semanaLunesInput)) : getMonday(new Date());
+  var semanaDate = isValidSemanaLunesKey(semanaLunesInput)
+    ? getMonday(parseDateKey(semanaLunesInput))
+    : getMonday(new Date());
   var semanaKey  = formatDateKey(semanaDate);
 
   var lock = LockService.getScriptLock();
