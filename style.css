@@ -660,7 +660,7 @@ select option { background: var(--bg-elevated); }
 /* ============================================================
    TOOLBAR ACTIONS (agrupa botones a la derecha del toolbar)
    ============================================================ */
-.toolbar-actions { display: flex; align-items: center; gap: 10px; }
+.toolbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* ============================================================
    WEEK NAV

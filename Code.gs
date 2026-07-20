@@ -29,7 +29,7 @@ var LIMITE_MINUTOS_DIA = 480;
 var HEADERS = [
   'ID', 'Fecha_Creacion', 'Area', 'Actividad', 'Dia_Semana', 'Prioridad',
   'Duracion', 'Colaborador', 'Fecha_Planificada', 'Semana_Lunes',
-  'Ejecutada', 'Fecha_Ejecucion', 'Origen'
+  'Ejecutada', 'Fecha_Ejecucion', 'Origen', 'Origen_ID'
 ];
 
 var RUTINARIAS_HEADERS = ['Actividad', 'Día', 'Tiempo', 'Colaborador', 'Prioridad', 'Área'];
@@ -128,6 +128,11 @@ function doPost(e) {
       return buildResponse({ status: 'ok', insertadas: resultadoRutinas.insertadas });
     }
 
+    if (action === 'rolloverPendientes') {
+      var resultadoTraspaso = rolloverPendingTasks(body.semanaLunes);
+      return buildResponse({ status: 'ok', trasladadas: resultadoTraspaso.trasladadas });
+    }
+
     if (action === 'sendEmail') {
       sendPlanningEmail(body);
       return buildResponse({ status: 'ok', message: 'Correo enviado.' });
@@ -214,6 +219,7 @@ function getSheet() {
     sheet.setColumnWidth(11, 90);  // Ejecutada
     sheet.setColumnWidth(12, 150); // Fecha_Ejecucion
     sheet.setColumnWidth(13, 110); // Origen
+    sheet.setColumnWidth(14, 220); // Origen_ID
   }
 
   ensureSheetSchema(sheet);
@@ -297,6 +303,7 @@ function getTasks() {
       ejecutada:         row[10] === true || row[10] === 'TRUE',
       fecha_ejecucion:   row[11] ? new Date(row[11]).toISOString() : null,
       origen:            row[12] ? String(row[12]) : 'Manual',
+      origen_id:         row[13] ? String(row[13]) : '',
     });
   }
 
@@ -418,7 +425,7 @@ function addTask(data) {
 
     sheet.appendRow([
       id, new Date(), data.area, String(data.actividad).trim(), data.dia, prioridad,
-      duracion, colaborador, fechaPlanificada, monday, false, '', 'Manual',
+      duracion, colaborador, fechaPlanificada, monday, false, '', 'Manual', '',
     ]);
 
     return id;
@@ -495,7 +502,7 @@ function addBatchTasks(data) {
         var id = generateId();
         newRows.push([
           id, new Date(), data.area, actividad, dia, prioridad, duracion,
-          colaborador, fechaPlanificada, monday, false, '', 'Manual',
+          colaborador, fechaPlanificada, monday, false, '', 'Manual', '',
         ]);
         minutosMap[key] = previos + duracionMins;
         added.push(id);
@@ -800,7 +807,7 @@ function injectRoutinesForWeek(semanaLunesInput) {
       var id = generateId();
       newRows.push([
         id, new Date(), r.area, r.actividad, r.dia, r.prioridad, r.tiempo,
-        r.colaborador, fechaPlanificada, semanaDate, false, '', 'Rutinaria',
+        r.colaborador, fechaPlanificada, semanaDate, false, '', 'Rutinaria', '',
       ]);
       yaInyectadas[key] = true;
     });
@@ -817,38 +824,47 @@ function injectRoutinesForWeek(semanaLunesInput) {
 }
 
 /**
- * Función que corre por trigger cada lunes temprano:
- *   1) Inyecta en la semana que empieza las actividades del catálogo
- *      "Actividades_Rutinarias" (idempotente: no duplica si ya corrió).
- *   2) Traspasa a la semana que empieza las tareas de la semana que
- *      terminó que no fueron marcadas como ejecutadas, ordenándolas
- *      por prioridad y encajándolas desde el lunes respetando el
- *      límite de 8h/día por colaborador (si no caben en ningún día,
- *      se colocan el domingo como desborde visible).
- * Instale el trigger ejecutando UNA VEZ configurarTriggerSemanal().
+ * Traspasa a la semana destino (o a la actual si no se especifica) las
+ * tareas de la semana INMEDIATAMENTE ANTERIOR que no se marcaron como
+ * ejecutadas, ordenándolas por prioridad y encajándolas desde el lunes
+ * respetando el límite de 8h/día por colaborador (si no caben en
+ * ningún día, se colocan el domingo como desborde visible). La fila
+ * original de la semana anterior no se borra ni se modifica (queda
+ * como evidencia en el reporte histórico de Seguimiento).
+ *
+ * Es idempotente: cada fila trasladada guarda en `Origen_ID` el ID de
+ * la tarea original, así que volver a llamar esta función para la
+ * misma semana no duplica traslados ya hechos. Usada por el botón
+ * "Traspasar Pendientes" del tablero y por procesarFinDeSemana().
+ * @param {string} [semanaDestinoInput] - clave YYYY-MM-DD del lunes de la semana destino
+ * @returns {{trasladadas: number}}
  */
-function procesarFinDeSemana() {
-  var semanaNuevaDate      = getMonday(new Date());
+function rolloverPendingTasks(semanaDestinoInput) {
+  var semanaNuevaDate = isValidSemanaLunesKey(semanaDestinoInput)
+    ? getMonday(parseDateKey(semanaDestinoInput))
+    : getMonday(new Date());
   var semanaQueTerminaDate = addDays(semanaNuevaDate, -7);
-  var semanaNuevaKey       = formatDateKey(semanaNuevaDate);
-  var semanaQueTerminaKey  = formatDateKey(semanaQueTerminaDate);
-
-  // ---- 1) Inyectar actividades rutinarias en la semana nueva ----
-  injectRoutinesForWeek(semanaNuevaKey);
+  var semanaNuevaKey      = formatDateKey(semanaNuevaDate);
+  var semanaQueTerminaKey = formatDateKey(semanaQueTerminaDate);
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
 
   try {
     var sheet    = getSheet();
-    var allTasks = getTasks(); // re-leer: ya incluye las rutinas recién inyectadas
+    var allTasks = getTasks();
 
     var minutosMap = buildMinutosMap(allTasks, semanaNuevaKey);
-    var newRows = [];
 
-    // ---- 2) Traspasar pendientes de la semana que terminó ----
+    var yaTrasladadas = {};
+    allTasks.forEach(function (t) {
+      if (t.origen === 'Traspaso' && t.semana_lunes === semanaNuevaKey && t.origen_id) {
+        yaTrasladadas[t.origen_id] = true;
+      }
+    });
+
     var pendientes = allTasks.filter(function (t) {
-      return t.semana_lunes === semanaQueTerminaKey && !t.ejecutada;
+      return t.semana_lunes === semanaQueTerminaKey && !t.ejecutada && !yaTrasladadas[t.id];
     });
 
     var porColaborador = {};
@@ -857,6 +873,7 @@ function procesarFinDeSemana() {
       porColaborador[t.colaborador].push(t);
     });
 
+    var newRows = [];
     Object.keys(porColaborador).forEach(function (colaborador) {
       var lista = porColaborador[colaborador];
       lista.sort(function (a, b) { return b.prioridad - a.prioridad; });
@@ -880,7 +897,7 @@ function procesarFinDeSemana() {
         var id = generateId();
         newRows.push([
           id, new Date(), t.area, t.actividad, diaElegido, t.prioridad, t.duracion,
-          colaborador, fechaPlanificada, semanaNuevaDate, false, '', 'Traspaso',
+          colaborador, fechaPlanificada, semanaNuevaDate, false, '', 'Traspaso', t.id,
         ]);
 
         var mapKeyFinal = colaborador + '||' + diaElegido;
@@ -893,10 +910,25 @@ function procesarFinDeSemana() {
       sheet.getRange(startRow, 1, newRows.length, HEADERS.length).setValues(newRows);
     }
 
-    Logger.log('procesarFinDeSemana: ' + newRows.length + ' fila(s) creadas para la semana ' + semanaNuevaKey);
+    return { trasladadas: newRows.length };
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Función que corre por trigger cada lunes temprano:
+ *   1) Inyecta en la semana que empieza las actividades del catálogo
+ *      "Actividades_Rutinarias" (idempotente).
+ *   2) Traspasa a la semana que empieza las tareas de la semana que
+ *      terminó que no fueron marcadas como ejecutadas (idempotente).
+ * Instale el trigger ejecutando UNA VEZ configurarTriggerSemanal().
+ */
+function procesarFinDeSemana() {
+  var semanaNuevaKey = formatDateKey(getMonday(new Date()));
+  injectRoutinesForWeek(semanaNuevaKey);
+  var resultado = rolloverPendingTasks(semanaNuevaKey);
+  Logger.log('procesarFinDeSemana: ' + resultado.trasladadas + ' fila(s) traspasadas para la semana ' + semanaNuevaKey);
 }
 
 /**

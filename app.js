@@ -321,6 +321,40 @@ async function injectRoutinesThisWeek() {
 }
 
 // ============================================================
+// TRASPASAR PENDIENTES — mueve a la semana vista las tareas no
+// ejecutadas de la semana inmediatamente anterior
+// ============================================================
+async function rolloverPendingTasksThisWeek() {
+  if (!scriptUrl) { showConfigModal(); return; }
+  const btn = document.getElementById('rolloverBtn');
+  if (btn) btn.disabled = true;
+
+  try {
+    const semanaLunes = formatDateKey(viewWeekMonday);
+    const res  = await fetch(scriptUrl, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({ action: 'rolloverPendientes', token: accessToken, semanaLunes }),
+    });
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || 'Error al traspasar las actividades pendientes.');
+
+    const count = json.trasladadas || 0;
+    if (count > 0) {
+      showToast(`↪️ ${count} actividad${count !== 1 ? 'es' : ''} pendiente${count !== 1 ? 's' : ''} de la semana anterior se traspasó${count !== 1 ? 'aron' : ''} a esta semana.`, 'success');
+      loadTasks();
+    } else {
+      showToast('ℹ️ No hay actividades pendientes de la semana anterior para traspasar (o ya se traspasaron).', 'info');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast(`❌ ${err.message}`, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ============================================================
 // IMPRIMIR / PDF
 // ============================================================
 function printWeeklyPlan() {
